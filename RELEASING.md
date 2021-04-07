@@ -1,42 +1,24 @@
 # Release Checklist
-* [ ] Get master to the appropriate code release state. [Travis CI](https://travis-ci.org/pylast/pylast) should be running cleanly for all merges to master.
-* [ ] Remove `.dev0` suffix from the version and update version and date in the changelog:
+
+* [ ] Get master to the appropriate code release state.
+      [GitHub Actions](https://github.com/pylast/pylast/actions) should be running cleanly for
+      all merges to master.
+      [![Test](https://github.com/pylast/pylast/workflows/Test/badge.svg)](https://github.com/pylast/pylast/actions)
+
+* [ ] Edit release draft, adjust text if needed:
+      https://github.com/pylast/pylast/releases
+
+* [ ] Check next tag is correct, amend if needed
+
+* [ ] Copy text into [`CHANGELOG.md`](CHANGELOG.md)
+
+* [ ] Publish release
+
+* [ ] Check the tagged [GitHub Actions build](https://github.com/pylast/pylast/actions?query=workflow%3ADeploy)
+      has deployed to [PyPI](https://pypi.org/project/pylast/#history)
+
+* [ ] Check installation:
+
 ```bash
-git checkout master
-edit pylast/version.py
-edit CHANGELOG.md
-```
-* [ ] Commit and tag with the version number:
-```bash
-git add CHANGELOG.md pylast/version.py
-git commit -m "Release 3.0.0"
-git tag -a 3.0.0 -m "Release 3.0.0"
-```
-* [ ] Create a distribution and release on PyPI:
-```bash
-pip3 install -U pip setuptools wheel twine keyring
-rm -rf build
-python3 setup.py sdist --format=gztar bdist_wheel
-twine check dist/*
-twine upload -r pypi dist/pylast-3.0.0*
-```
-* [ ] Check installation: `pip3 uninstall -y pylast && pip3 install -U pylast`
-* [ ] Push commits and tags:
- ```bash
-git push
-git push --tags
-```
-* [ ] Create new GitHub release: https://github.com/pylast/pylast/releases/new
-  * Tag: Pick existing tag "3.0.0"
-  * Title: "Release 3.0.0"
-* [ ] Increment version and append `.dev0`:
-```bash
-git checkout master
-edit pylast/version.py
-```
-* [ ] Commit and push:
-```bash
-git add pylast/version.py
-git commit -m "Start new release cycle"
-git push
+pip3 uninstall -y pylast && pip3 install -U pylast && python3 -c "import pylast; print(pylast.__version__)"
 ```

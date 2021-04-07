@@ -2,8 +2,6 @@
 """
 Integration (not unit) tests for pylast.py
 """
-import unittest
-
 from flaky import flaky
 
 import pylast
@@ -27,7 +25,7 @@ class TestPyLastWithLibreFm(PyLastTestCase):
         name = artist.get_name()
 
         # Assert
-        self.assertEqual(name, "Radiohead")
+        assert name == "Radiohead"
 
     def test_repr(self):
         # Arrange
@@ -41,7 +39,3 @@ class TestPyLastWithLibreFm(PyLastTestCase):
 
         # Assert
         self.assert_startswith(representation, "pylast.LibreFMNetwork(")
-
-
-if __name__ == "__main__":
-    unittest.main(failfast=True)

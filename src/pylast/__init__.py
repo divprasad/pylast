@@ -1,10 +1,9 @@
-# -*- coding: utf-8 -*-
 #
 # pylast -
 #     A Python interface to Last.fm and Libre.fm
 #
 # Copyright 2008-2010 Amr Hassan
-# Copyright 2013-2018 hugovk
+# Copyright 2013-2021 hugovk
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,65 +19,37 @@
 #
 # https://github.com/pylast/pylast
 
-from xml.dom import minidom, Node
 import collections
 import hashlib
+import html.entities
 import logging
+import os
 import shelve
 import ssl
-import sys
 import tempfile
 import time
 import xml.dom
-import html.entities
 from http.client import HTTPSConnection
+from urllib.parse import quote_plus
+from xml.dom import Node, minidom
 
-from . import version
+import pkg_resources
 
 __author__ = "Amr Hassan, hugovk, Mice Pápai"
-__copyright__ = (
-    "Copyright (C) 2008-2010 Amr Hassan, 2013-2018 hugovk, " "2017 Mice Pápai"
-)
+__copyright__ = "Copyright (C) 2008-2010 Amr Hassan, 2013-2021 hugovk, 2017 Mice Pápai"
 __license__ = "apache2"
 __email__ = "amr.hassan@gmail.com"
-__version__ = version.__version__
-
-if sys.version_info < (3,):
-    raise ImportError(
-        """pylast 3.0 and above are no longer compatible with Python 2.
-
-This is pylast {} and you are using Python {}.
-Make sure you have pip >= 9.0 and setuptools >= 24.2 and retry:
-
- $ pip install --upgrade pip setuptools
-
-Other choices:
-
-- Upgrade to Python 3.
-
-- Install an older version of pylast:
-
-$ pip install 'pylast<3.0'
-
-For more information:
-
-https://github.com/pylast/pylast/issues/265
-""".format(
-            version, ".".join([str(v) for v in sys.version_info[:3]])
-        )
-    )
-else:
-    # Keep importable on Python 2 for a while to show ImportError
-    from urllib.parse import quote_plus as url_quote_plus
+__version__ = pkg_resources.get_distribution(__name__).version
 
 
+# 1 : This error does not exist
 STATUS_INVALID_SERVICE = 2
 STATUS_INVALID_METHOD = 3
 STATUS_AUTH_FAILED = 4
 STATUS_INVALID_FORMAT = 5
 STATUS_INVALID_PARAMS = 6
 STATUS_INVALID_RESOURCE = 7
-STATUS_TOKEN_ERROR = 8
+STATUS_OPERATION_FAILED = 8
 STATUS_INVALID_SK = 9
 STATUS_INVALID_API_KEY = 10
 STATUS_OFFLINE = 11
@@ -86,6 +57,20 @@ STATUS_SUBSCRIBERS_ONLY = 12
 STATUS_INVALID_SIGNATURE = 13
 STATUS_TOKEN_UNAUTHORIZED = 14
 STATUS_TOKEN_EXPIRED = 15
+STATUS_TEMPORARILY_UNAVAILABLE = 16
+STATUS_LOGIN_REQUIRED = 17
+STATUS_TRIAL_EXPIRED = 18
+# 19 : This error does not exist
+STATUS_NOT_ENOUGH_CONTENT = 20
+STATUS_NOT_ENOUGH_MEMBERS = 21
+STATUS_NOT_ENOUGH_FANS = 22
+STATUS_NOT_ENOUGH_NEIGHBOURS = 23
+STATUS_NO_PEAK_RADIO = 24
+STATUS_RADIO_NOT_FOUND = 25
+STATUS_API_KEY_SUSPENDED = 26
+STATUS_DEPRECATED = 27
+# 28 : This error is not documented
+STATUS_RATE_LIMIT_EXCEEDED = 29
 
 PERIOD_OVERALL = "overall"
 PERIOD_7DAYS = "7day"
@@ -159,29 +144,29 @@ class _Network:
         token=None,
     ):
         """
-            name: the name of the network
-            homepage: the homepage URL
-            ws_server: the URL of the webservices server
-            api_key: a provided API_KEY
-            api_secret: a provided API_SECRET
-            session_key: a generated session_key or None
-            username: a username of a valid user
-            password_hash: the output of pylast.md5(password) where password is
-                the user's password
-            domain_names: a dict mapping each DOMAIN_* value to a string domain
-                name
-            urls: a dict mapping types to URLs
-            token: an authentication token to retrieve a session
+        name: the name of the network
+        homepage: the homepage URL
+        ws_server: the URL of the webservices server
+        api_key: a provided API_KEY
+        api_secret: a provided API_SECRET
+        session_key: a generated session_key or None
+        username: a username of a valid user
+        password_hash: the output of pylast.md5(password) where password is
+            the user's password
+        domain_names: a dict mapping each DOMAIN_* value to a string domain
+            name
+        urls: a dict mapping types to URLs
+        token: an authentication token to retrieve a session
 
-            if username and password_hash were provided and not session_key,
-            session_key will be generated automatically when needed.
+        if username and password_hash were provided and not session_key,
+        session_key will be generated automatically when needed.
 
-            Either a valid session_key or a combination of username and
-            password_hash must be present for scrobbling.
+        Either a valid session_key or a combination of username and
+        password_hash must be present for scrobbling.
 
-            You should use a preconfigured network object through a
-            get_*_network(...) method instead of creating an object
-            of this class, unless you know what you're doing.
+        You should use a preconfigured network object through a
+        get_*_network(...) method instead of creating an object
+        of this class, unless you know what you're doing.
         """
 
         self.name = name
@@ -222,56 +207,56 @@ class _Network:
 
     def get_artist(self, artist_name):
         """
-            Return an Artist object
+        Return an Artist object
         """
 
         return Artist(artist_name, self)
 
     def get_track(self, artist, title):
         """
-            Return a Track object
+        Return a Track object
         """
 
         return Track(artist, title, self)
 
     def get_album(self, artist, title):
         """
-            Return an Album object
+        Return an Album object
         """
 
         return Album(artist, title, self)
 
     def get_authenticated_user(self):
         """
-            Returns the authenticated user
+        Returns the authenticated user
         """
 
         return AuthenticatedUser(self)
 
     def get_country(self, country_name):
         """
-            Returns a country object
+        Returns a country object
         """
 
         return Country(country_name, self)
 
     def get_user(self, username):
         """
-            Returns a user object
+        Returns a user object
         """
 
         return User(username, self)
 
     def get_tag(self, name):
         """
-            Returns a tag object
+        Returns a tag object
         """
 
         return Tag(name, self)
 
     def _get_language_domain(self, domain_language):
         """
-            Returns the mapped domain name of the network to a DOMAIN_* value
+        Returns the mapped domain name of the network to a DOMAIN_* value
         """
 
         if domain_language in self.domain_names:
@@ -284,13 +269,13 @@ class _Network:
 
     def _get_ws_auth(self):
         """
-            Returns an (API_KEY, API_SECRET, SESSION_KEY) tuple.
+        Returns an (API_KEY, API_SECRET, SESSION_KEY) tuple.
         """
         return self.api_key, self.api_secret, self.session_key
 
     def _delay_call(self):
         """
-            Makes sure that web service calls are at least 0.2 seconds apart.
+        Makes sure that web service calls are at least 0.2 seconds apart.
         """
         now = time.time()
 
@@ -437,7 +422,8 @@ class _Network:
         """
 
         if not file_path:
-            file_path = tempfile.mktemp(prefix="pylast_tmp_")
+            self.cache_backend = _ShelfCacheBackend.create_shelf()
+            return
 
         self.cache_backend = _ShelfCacheBackend(file_path)
 
@@ -681,8 +667,7 @@ class LastFMNetwork(_Network):
         password_hash="",
         token="",
     ):
-        _Network.__init__(
-            self,
+        super().__init__(
             name="Last.fm",
             homepage="https://www.last.fm",
             ws_server=("ws.audioscrobbler.com", "/2.0/"),
@@ -749,8 +734,7 @@ class LibreFMNetwork(_Network):
         self, api_key="", api_secret="", session_key="", username="", password_hash=""
     ):
 
-        _Network.__init__(
-            self,
+        super().__init__(
             name="Libre.fm",
             homepage="https://libre.fm",
             ws_server=("libre.fm", "/2.0/"),
@@ -800,8 +784,11 @@ class LibreFMNetwork(_Network):
 class _ShelfCacheBackend:
     """Used as a backend for caching cacheable requests."""
 
-    def __init__(self, file_path=None):
-        self.shelf = shelve.open(file_path)
+    def __init__(self, file_path=None, flag=None):
+        if flag is not None:
+            self.shelf = shelve.open(file_path, flag=flag)
+        else:
+            self.shelf = shelve.open(file_path)
         self.cache_keys = set(self.shelf.keys())
 
     def __contains__(self, key):
@@ -816,6 +803,12 @@ class _ShelfCacheBackend:
     def set_xml(self, key, xml_string):
         self.cache_keys.add(key)
         self.shelf[key] = xml_string
+
+    @classmethod
+    def create_shelf(cls):
+        file_descriptor, file_path = tempfile.mkstemp(prefix="pylast_tmp_")
+        os.close(file_descriptor)
+        return cls(file_path=file_path, flag="n")
 
 
 class _Request:
@@ -878,7 +871,7 @@ class _Request:
         keys = list(self.params.keys())
         keys.sort()
 
-        cache_key = str()
+        cache_key = ""
 
         for key in keys:
             if key != "api_sig" and key != "api_key" and key != "sk":
@@ -908,13 +901,13 @@ class _Request:
 
         data = []
         for name in self.params.keys():
-            data.append("=".join((name, url_quote_plus(_string(self.params[name])))))
+            data.append("=".join((name, quote_plus(_string(self.params[name])))))
         data = "&".join(data)
 
         headers = {
             "Content-type": "application/x-www-form-urlencoded",
             "Accept-Charset": "utf-8",
-            "User-Agent": "pylast" + "/" + __version__,
+            "User-Agent": "pylast/" + __version__,
         }
 
         (host_name, host_subdir) = self.network.ws_server
@@ -934,7 +927,7 @@ class _Request:
                     headers=headers,
                 )
             except Exception as e:
-                raise NetworkError(self.network, e)
+                raise NetworkError(self.network, e) from e
 
         else:
             conn = HTTPSConnection(context=SSL_CONTEXT, host=host_name)
@@ -942,12 +935,20 @@ class _Request:
             try:
                 conn.request(method="POST", url=host_subdir, body=data, headers=headers)
             except Exception as e:
-                raise NetworkError(self.network, e)
+                raise NetworkError(self.network, e) from e
 
         try:
-            response_text = _unicode(conn.getresponse().read())
+            response = conn.getresponse()
+            if response.status in [500, 502, 503, 504]:
+                raise WSError(
+                    self.network,
+                    response.status,
+                    "Connection to the API failed with HTTP code "
+                    + str(response.status),
+                )
+            response_text = _unicode(response.read())
         except Exception as e:
-            raise MalformedResponseError(self.network, e)
+            raise MalformedResponseError(self.network, e) from e
 
         try:
             self._check_response_for_errors(response_text)
@@ -971,7 +972,7 @@ class _Request:
         try:
             doc = minidom.parseString(_string(response).replace("opensearch:", ""))
         except Exception as e:
-            raise MalformedResponseError(self.network, e)
+            raise MalformedResponseError(self.network, e) from e
 
         e = doc.getElementsByTagName("lfm")[0]
         # logger.debug(doc.toprettyxml())
@@ -1052,9 +1053,6 @@ class SessionKeyGenerator:
 
         if url in self.web_auth_tokens.keys():
             token = self.web_auth_tokens[url]
-        else:
-            # This will raise a WSError if token is blank or unauthorized
-            token = token
 
         request = _Request(self.network, "auth.getSession", {"token": token})
 
@@ -1147,23 +1145,36 @@ class _BaseObject:
     def _extract_cdata_from_request(self, method_name, tag_name, params):
         doc = self._request(method_name, True, params)
 
-        return doc.getElementsByTagName(tag_name)[0].firstChild.wholeText.strip()
+        first_child = doc.getElementsByTagName(tag_name)[0].firstChild
 
-    def _get_things(self, method, thing, thing_type, params=None, cacheable=True):
+        if first_child is None:
+            return None
+
+        return first_child.wholeText.strip()
+
+    def _get_things(
+        self, method, thing_type, params=None, cacheable=True, stream=False
+    ):
         """Returns a list of the most played thing_types by this thing."""
 
-        limit = params.get("limit", 1)
-        seq = []
-        for node in _collect_nodes(
-            limit, self, self.ws_prefix + "." + method, cacheable, params
-        ):
-            title = _extract(node, "name")
-            artist = _extract(node, "name", 1)
-            playcount = _number(_extract(node, "playcount"))
+        def _stream_get_things():
+            limit = params.get("limit", 50)
+            nodes = _collect_nodes(
+                limit,
+                self,
+                self.ws_prefix + "." + method,
+                cacheable,
+                params,
+                stream=stream,
+            )
+            for node in nodes:
+                title = _extract(node, "name")
+                artist = _extract(node, "name", 1)
+                playcount = _number(_extract(node, "playcount"))
 
-            seq.append(TopItem(thing_type(artist, title, self.network), playcount))
+                yield TopItem(thing_type(artist, title, self.network), playcount)
 
-        return seq
+        return _stream_get_things() if stream else list(_stream_get_things())
 
     def get_wiki_published_date(self):
         """
@@ -1204,11 +1215,11 @@ class _BaseObject:
         return _extract(node, section)
 
 
-class _Chartable:
+class _Chartable(_BaseObject):
     """Common functions for classes with charts."""
 
-    def __init__(self, ws_prefix):
-        self.ws_prefix = ws_prefix  # TODO move to _BaseObject?
+    def __init__(self, network, ws_prefix):
+        super().__init__(network=network, ws_prefix=ws_prefix)
 
     def get_weekly_chart_dates(self):
         """Returns a list of From and To tuples for the available charts."""
@@ -1233,7 +1244,7 @@ class _Chartable:
         """
         Returns the weekly artist charts for the week starting from the
         from_date value to the to_date value.
-        Only for Tag or User.
+        Only for User.
         """
         return self.get_weekly_charts("artist", from_date, to_date)
 
@@ -1275,11 +1286,11 @@ class _Chartable:
         return seq
 
 
-class _Taggable:
+class _Taggable(_BaseObject):
     """Common functions for classes with tags."""
 
-    def __init__(self, ws_prefix):
-        self.ws_prefix = ws_prefix  # TODO move to _BaseObject
+    def __init__(self, network, ws_prefix):
+        super().__init__(network=network, ws_prefix=ws_prefix)
 
     def add_tags(self, tags):
         """Adds one or several tags.
@@ -1384,9 +1395,9 @@ class _Taggable:
 
         for element in elements:
             tag_name = _extract(element, "name")
-            tagcount = _extract(element, "count")
+            tag_count = _extract(element, "count")
 
-            seq.append(TopItem(Tag(tag_name, self.network), tagcount))
+            seq.append(TopItem(Tag(tag_name, self.network), tag_count))
 
         if limit:
             seq = seq[:limit]
@@ -1394,7 +1405,13 @@ class _Taggable:
         return seq
 
 
-class WSError(Exception):
+class PyLastError(Exception):
+    """Generic exception raised by PyLast"""
+
+    pass
+
+
+class WSError(PyLastError):
     """Exception related to the Network web service"""
 
     def __init__(self, network, status, details):
@@ -1408,25 +1425,37 @@ class WSError(Exception):
 
     def get_id(self):
         """Returns the exception ID, from one of the following:
-            STATUS_INVALID_SERVICE = 2
-            STATUS_INVALID_METHOD = 3
-            STATUS_AUTH_FAILED = 4
-            STATUS_INVALID_FORMAT = 5
-            STATUS_INVALID_PARAMS = 6
-            STATUS_INVALID_RESOURCE = 7
-            STATUS_TOKEN_ERROR = 8
-            STATUS_INVALID_SK = 9
-            STATUS_INVALID_API_KEY = 10
-            STATUS_OFFLINE = 11
-            STATUS_SUBSCRIBERS_ONLY = 12
-            STATUS_TOKEN_UNAUTHORIZED = 14
-            STATUS_TOKEN_EXPIRED = 15
+        STATUS_INVALID_SERVICE = 2
+        STATUS_INVALID_METHOD = 3
+        STATUS_AUTH_FAILED = 4
+        STATUS_INVALID_FORMAT = 5
+        STATUS_INVALID_PARAMS = 6
+        STATUS_INVALID_RESOURCE = 7
+        STATUS_OPERATION_FAILED = 8
+        STATUS_INVALID_SK = 9
+        STATUS_INVALID_API_KEY = 10
+        STATUS_OFFLINE = 11
+        STATUS_SUBSCRIBERS_ONLY = 12
+        STATUS_TOKEN_UNAUTHORIZED = 14
+        STATUS_TOKEN_EXPIRED = 15
+        STATUS_TEMPORARILY_UNAVAILABLE = 16
+        STATUS_LOGIN_REQUIRED = 17
+        STATUS_TRIAL_EXPIRED = 18
+        STATUS_NOT_ENOUGH_CONTENT = 20
+        STATUS_NOT_ENOUGH_MEMBERS  = 21
+        STATUS_NOT_ENOUGH_FANS = 22
+        STATUS_NOT_ENOUGH_NEIGHBOURS = 23
+        STATUS_NO_PEAK_RADIO = 24
+        STATUS_RADIO_NOT_FOUND = 25
+        STATUS_API_KEY_SUSPENDED = 26
+        STATUS_DEPRECATED = 27
+        STATUS_RATE_LIMIT_EXCEEDED = 29
         """
 
         return self.status
 
 
-class MalformedResponseError(Exception):
+class MalformedResponseError(PyLastError):
     """Exception conveying a malformed response from the music network."""
 
     def __init__(self, network, underlying_error):
@@ -1439,7 +1468,7 @@ class MalformedResponseError(Exception):
         )
 
 
-class NetworkError(Exception):
+class NetworkError(PyLastError):
     """Exception conveying a problem in sending a request to Last.fm"""
 
     def __init__(self, network, underlying_error):
@@ -1450,7 +1479,7 @@ class NetworkError(Exception):
         return "NetworkError: %s" % str(self.underlying_error)
 
 
-class _Opus(_BaseObject, _Taggable):
+class _Opus(_Taggable):
     """An album or track."""
 
     artist = None
@@ -1471,8 +1500,7 @@ class _Opus(_BaseObject, _Taggable):
         if info is None:
             info = {}
 
-        _BaseObject.__init__(self, network, ws_prefix)
-        _Taggable.__init__(self, ws_prefix)
+        super().__init__(network=network, ws_prefix=ws_prefix)
 
         if isinstance(artist, Artist):
             self.artist = artist
@@ -1640,7 +1668,7 @@ class Album(_Opus):
         }
 
 
-class Artist(_BaseObject, _Taggable):
+class Artist(_Taggable):
     """An artist."""
 
     name = None
@@ -1657,8 +1685,7 @@ class Artist(_BaseObject, _Taggable):
         if info is None:
             info = {}
 
-        _BaseObject.__init__(self, network, "artist")
-        _Taggable.__init__(self, "artist")
+        super().__init__(network=network, ws_prefix="artist")
 
         self.name = name
         self.username = username
@@ -1702,23 +1729,6 @@ class Artist(_BaseObject, _Taggable):
         """Returns the corrected artist name."""
 
         return _extract(self._request(self.ws_prefix + ".getCorrection"), "name")
-
-    def get_cover_image(self, size=SIZE_EXTRA_LARGE):
-        """
-        Returns a URI to the cover image
-        size can be one of:
-            SIZE_MEGA
-            SIZE_EXTRA_LARGE
-            SIZE_LARGE
-            SIZE_MEDIUM
-            SIZE_SMALL
-        """
-
-        if "image" not in self.info:
-            self.info["image"] = _extract_all(
-                self._request(self.ws_prefix + ".getInfo", cacheable=True), "image"
-            )
-        return self.info["image"][size]
 
     def get_playcount(self):
         """Returns the number of plays on the network."""
@@ -1814,21 +1824,21 @@ class Artist(_BaseObject, _Taggable):
 
         return artists
 
-    def get_top_albums(self, limit=None, cacheable=True):
+    def get_top_albums(self, limit=None, cacheable=True, stream=False):
         """Returns a list of the top albums."""
         params = self._get_params()
         if limit:
             params["limit"] = limit
 
-        return self._get_things("getTopAlbums", "album", Album, params, cacheable)
+        return self._get_things("getTopAlbums", Album, params, cacheable, stream=stream)
 
-    def get_top_tracks(self, limit=None, cacheable=True):
+    def get_top_tracks(self, limit=None, cacheable=True, stream=False):
         """Returns a list of the most played Tracks by this artist."""
         params = self._get_params()
         if limit:
             params["limit"] = limit
 
-        return self._get_things("getTopTracks", "track", Track, params, cacheable)
+        return self._get_things("getTopTracks", Track, params, cacheable, stream=stream)
 
     def get_url(self, domain_name=DOMAIN_ENGLISH):
         """Returns the URL of the artist page on the network.
@@ -1861,7 +1871,7 @@ class Country(_BaseObject):
     __hash__ = _BaseObject.__hash__
 
     def __init__(self, name, network):
-        _BaseObject.__init__(self, network, "geo")
+        super().__init__(network=network, ws_prefix="geo")
 
         self.name = name
 
@@ -1896,13 +1906,13 @@ class Country(_BaseObject):
 
         return _extract_top_artists(doc, self)
 
-    def get_top_tracks(self, limit=None, cacheable=True):
+    def get_top_tracks(self, limit=None, cacheable=True, stream=False):
         """Returns a sequence of the most played tracks"""
         params = self._get_params()
         if limit:
             params["limit"] = limit
 
-        return self._get_things("getTopTracks", "track", Track, params, cacheable)
+        return self._get_things("getTopTracks", Track, params, cacheable, stream=stream)
 
     def get_url(self, domain_name=DOMAIN_ENGLISH):
         """Returns the URL of the country page on the network.
@@ -1936,7 +1946,7 @@ class Library(_BaseObject):
     __hash__ = _BaseObject.__hash__
 
     def __init__(self, user, network):
-        _BaseObject.__init__(self, network, "library")
+        super().__init__(network=network, ws_prefix="library")
 
         if isinstance(user, User):
             self.user = user
@@ -1957,27 +1967,27 @@ class Library(_BaseObject):
         """Returns the user who owns this library."""
         return self.user
 
-    def get_artists(self, limit=50, cacheable=True):
+    def get_artists(self, limit=50, cacheable=True, stream=False):
         """
         Returns a sequence of Album objects
         if limit==None it will return all (may take a while)
         """
 
-        seq = []
-        for node in _collect_nodes(
-            limit, self, self.ws_prefix + ".getArtists", cacheable
-        ):
-            name = _extract(node, "name")
+        def _get_artists():
+            for node in _collect_nodes(
+                limit, self, self.ws_prefix + ".getArtists", cacheable, stream=stream
+            ):
+                name = _extract(node, "name")
 
-            playcount = _number(_extract(node, "playcount"))
-            tagcount = _number(_extract(node, "tagcount"))
+                playcount = _number(_extract(node, "playcount"))
+                tagcount = _number(_extract(node, "tagcount"))
 
-            seq.append(LibraryItem(Artist(name, self.network), playcount, tagcount))
+                yield LibraryItem(Artist(name, self.network), playcount, tagcount)
 
-        return seq
+        return _get_artists() if stream else list(_get_artists())
 
 
-class Tag(_BaseObject, _Chartable):
+class Tag(_Chartable):
     """A Last.fm object tag."""
 
     name = None
@@ -1985,8 +1995,7 @@ class Tag(_BaseObject, _Chartable):
     __hash__ = _BaseObject.__hash__
 
     def __init__(self, name, network):
-        _BaseObject.__init__(self, network, "tag")
-        _Chartable.__init__(self, "tag")
+        super().__init__(network=network, ws_prefix="tag")
 
         self.name = name
 
@@ -2026,13 +2035,13 @@ class Tag(_BaseObject, _Chartable):
 
         return _extract_top_albums(doc, self.network)
 
-    def get_top_tracks(self, limit=None, cacheable=True):
+    def get_top_tracks(self, limit=None, cacheable=True, stream=False):
         """Returns a list of the most played Tracks for this tag."""
         params = self._get_params()
         if limit:
             params["limit"] = limit
 
-        return self._get_things("getTopTracks", "track", Track, params, cacheable)
+        return self._get_things("getTopTracks", Track, params, cacheable, stream=stream)
 
     def get_top_artists(self, limit=None, cacheable=True):
         """Returns a sequence of the most played artists."""
@@ -2116,6 +2125,8 @@ class Track(_Opus):
 
     def get_album(self):
         """Returns the album object of this track."""
+        if "album" in self.info and self.info["album"] is not None:
+            return Album(self.artist, self.info["album"], self.network)
 
         doc = self._request(self.ws_prefix + ".getInfo", True)
 
@@ -2186,7 +2197,7 @@ class Track(_Opus):
         }
 
 
-class User(_BaseObject, _Chartable):
+class User(_Chartable):
     """A Last.fm user."""
 
     name = None
@@ -2194,8 +2205,7 @@ class User(_BaseObject, _Chartable):
     __hash__ = _BaseObject.__hash__
 
     def __init__(self, user_name, network):
-        _BaseObject.__init__(self, network, "user")
-        _Chartable.__init__(self, "user")
+        super().__init__(network=network, ws_prefix="user")
 
         self.name = user_name
 
@@ -2218,6 +2228,16 @@ class User(_BaseObject, _Chartable):
     def _get_params(self):
         return {self.ws_prefix: self.get_name()}
 
+    def _extract_played_track(self, track_node):
+        title = _extract(track_node, "name")
+        track_artist = _extract(track_node, "artist")
+        date = _extract(track_node, "date")
+        album = _extract(track_node, "album")
+        timestamp = track_node.getElementsByTagName("date")[0].getAttribute("uts")
+        return PlayedTrack(
+            Track(track_artist, title, self.network), album, date, timestamp
+        )
+
     def get_name(self, properly_capitalized=False):
         """Returns the user name."""
 
@@ -2228,74 +2248,53 @@ class User(_BaseObject, _Chartable):
 
         return self.name
 
-    def get_artist_tracks(self, artist, cacheable=False):
-        """
-        Get a list of tracks by a given artist scrobbled by this user,
-        including scrobble time.
-        """
-        # Not implemented:
-        # "Can be limited to specific timeranges, defaults to all time."
-
-        params = self._get_params()
-        params["artist"] = artist
-
-        seq = []
-        for track in _collect_nodes(
-            None, self, self.ws_prefix + ".getArtistTracks", cacheable, params
-        ):
-            title = _extract(track, "name")
-            artist = _extract(track, "artist")
-            date = _extract(track, "date")
-            album = _extract(track, "album")
-            timestamp = track.getElementsByTagName("date")[0].getAttribute("uts")
-
-            seq.append(
-                PlayedTrack(Track(artist, title, self.network), album, date, timestamp)
-            )
-
-        return seq
-
-    def get_friends(self, limit=50, cacheable=False):
+    def get_friends(self, limit=50, cacheable=False, stream=False):
         """Returns a list of the user's friends. """
 
-        seq = []
-        for node in _collect_nodes(
-            limit, self, self.ws_prefix + ".getFriends", cacheable
-        ):
-            seq.append(User(_extract(node, "name"), self.network))
+        def _get_friends():
+            for node in _collect_nodes(
+                limit, self, self.ws_prefix + ".getFriends", cacheable, stream=stream
+            ):
+                yield User(_extract(node, "name"), self.network)
 
-        return seq
+        return _get_friends() if stream else list(_get_friends())
 
-    def get_loved_tracks(self, limit=50, cacheable=True):
+    def get_loved_tracks(self, limit=50, cacheable=True, stream=False):
         """
         Returns this user's loved track as a sequence of LovedTrack objects in
         reverse order of their timestamp, all the way back to the first track.
 
         If limit==None, it will try to pull all the available data.
+        If stream=True, it will yield tracks as soon as a page has been retrieved.
 
         This method uses caching. Enable caching only if you're pulling a
         large amount of data.
         """
 
-        params = self._get_params()
-        if limit:
-            params["limit"] = limit
+        def _get_loved_tracks():
+            params = self._get_params()
+            if limit:
+                params["limit"] = limit
 
-        seq = []
-        for track in _collect_nodes(
-            limit, self, self.ws_prefix + ".getLovedTracks", cacheable, params
-        ):
-            try:
-                artist = _extract(track, "name", 1)
-            except IndexError:  # pragma: no cover
-                continue
-            title = _extract(track, "name")
-            date = _extract(track, "date")
-            timestamp = track.getElementsByTagName("date")[0].getAttribute("uts")
+            for track in _collect_nodes(
+                limit,
+                self,
+                self.ws_prefix + ".getLovedTracks",
+                cacheable,
+                params,
+                stream=stream,
+            ):
+                try:
+                    artist = _extract(track, "name", 1)
+                except IndexError:  # pragma: no cover
+                    continue
+                title = _extract(track, "name")
+                date = _extract(track, "date")
+                timestamp = track.getElementsByTagName("date")[0].getAttribute("uts")
 
-            seq.append(LovedTrack(Track(artist, title, self.network), date, timestamp))
+                yield LovedTrack(Track(artist, title, self.network), date, timestamp)
 
-        return seq
+        return _get_loved_tracks() if stream else list(_get_loved_tracks())
 
     def get_now_playing(self):
         """
@@ -2319,10 +2318,19 @@ class User(_BaseObject, _Chartable):
 
         artist = _extract(e, "artist")
         title = _extract(e, "name")
+        info = {"album": _extract(e, "album"), "image": _extract_all(e, "image")}
 
-        return Track(artist, title, self.network, self.name)
+        return Track(artist, title, self.network, self.name, info=info)
 
-    def get_recent_tracks(self, limit=10, cacheable=True, time_from=None, time_to=None):
+    def get_recent_tracks(
+        self,
+        limit=10,
+        cacheable=True,
+        time_from=None,
+        time_to=None,
+        stream=False,
+        now_playing=False,
+    ):
         """
         Returns this user's played track as a sequence of PlayedTrack objects
         in reverse order of playtime, all the way back to the first track.
@@ -2337,38 +2345,39 @@ class User(_BaseObject, _Chartable):
         before this time, in UNIX timestamp format (integer number of
         seconds since 00:00:00, January 1st 1970 UTC). This must be in
         the UTC time zone.
+        stream: If True, it will yield tracks as soon as a page has been retrieved.
 
         This method uses caching. Enable caching only if you're pulling a
         large amount of data.
         """
 
-        params = self._get_params()
-        if limit:
-            params["limit"] = limit
-        if time_from:
-            params["from"] = time_from
-        if time_to:
-            params["to"] = time_to
+        def _get_recent_tracks():
+            params = self._get_params()
+            if limit:
+                params["limit"] = limit + 1  # in case we remove the now playing track
+            if time_from:
+                params["from"] = time_from
+            if time_to:
+                params["to"] = time_to
 
-        seq = []
-        for track in _collect_nodes(
-            limit, self, self.ws_prefix + ".getRecentTracks", cacheable, params
-        ):
+            track_count = 0
+            for track_node in _collect_nodes(
+                limit + 1 if limit else None,
+                self,
+                self.ws_prefix + ".getRecentTracks",
+                cacheable,
+                params,
+                stream=stream,
+            ):
+                if track_node.hasAttribute("nowplaying") and not now_playing:
+                    continue  # to prevent the now playing track from sneaking in
 
-            if track.hasAttribute("nowplaying"):
-                continue  # to prevent the now playing track from sneaking in
+                if limit and track_count >= limit:
+                    break
+                yield self._extract_played_track(track_node=track_node)
+                track_count += 1
 
-            title = _extract(track, "name")
-            artist = _extract(track, "artist")
-            date = _extract(track, "date")
-            album = _extract(track, "album")
-            timestamp = track.getElementsByTagName("date")[0].getAttribute("uts")
-
-            seq.append(
-                PlayedTrack(Track(artist, title, self.network), album, date, timestamp)
-            )
-
-        return seq
+        return _get_recent_tracks() if stream else list(_get_recent_tracks())
 
     def get_country(self):
         """Returns the name of the country of the user."""
@@ -2507,7 +2516,9 @@ class User(_BaseObject, _Chartable):
 
         return seq
 
-    def get_top_tracks(self, period=PERIOD_OVERALL, limit=None, cacheable=True):
+    def get_top_tracks(
+        self, period=PERIOD_OVERALL, limit=None, cacheable=True, stream=False
+    ):
         """Returns the top tracks played by a user.
         * period: The period of time. Possible values:
           o PERIOD_OVERALL
@@ -2523,7 +2534,29 @@ class User(_BaseObject, _Chartable):
         if limit:
             params["limit"] = limit
 
-        return self._get_things("getTopTracks", "track", Track, params, cacheable)
+        return self._get_things("getTopTracks", Track, params, cacheable, stream=stream)
+
+    def get_track_scrobbles(self, artist, track, cacheable=False, stream=False):
+        """
+        Get a list of this user's scrobbles of this artist's track,
+        including scrobble time.
+        """
+        params = self._get_params()
+        params["artist"] = artist
+        params["track"] = track
+
+        def _get_track_scrobbles():
+            for track_node in _collect_nodes(
+                None,
+                self,
+                self.ws_prefix + ".getTrackScrobbles",
+                cacheable,
+                params,
+                stream=stream,
+            ):
+                yield self._extract_played_track(track_node)
+
+        return _get_track_scrobbles() if stream else list(_get_track_scrobbles())
 
     def get_image(self, size=SIZE_EXTRA_LARGE):
         """
@@ -2568,21 +2601,21 @@ class User(_BaseObject, _Chartable):
 
 class AuthenticatedUser(User):
     def __init__(self, network):
-        User.__init__(self, network.username, network)
+        super().__init__(user_name=network.username, network=network)
 
     def _get_params(self):
         return {"user": self.get_name()}
 
-    def get_name(self):
+    def get_name(self, properly_capitalized=False):
         """Returns the name of the authenticated user."""
-        return self.name
+        return super().get_name(properly_capitalized=properly_capitalized)
 
 
 class _Search(_BaseObject):
     """An abstract class. Use one of its derivatives."""
 
     def __init__(self, ws_prefix, search_terms, network):
-        _BaseObject.__init__(self, network, ws_prefix)
+        super().__init__(network, ws_prefix)
 
         self._ws_prefix = ws_prefix
         self.search_terms = search_terms
@@ -2622,8 +2655,9 @@ class AlbumSearch(_Search):
     """Search for an album by name."""
 
     def __init__(self, album_name, network):
-
-        _Search.__init__(self, "album", {"album": album_name}, network)
+        super().__init__(
+            ws_prefix="album", search_terms={"album": album_name}, network=network
+        )
 
     def get_next_page(self):
         """Returns the next page of results as a sequence of Album objects."""
@@ -2648,7 +2682,9 @@ class ArtistSearch(_Search):
     """Search for an artist by artist name."""
 
     def __init__(self, artist_name, network):
-        _Search.__init__(self, "artist", {"artist": artist_name}, network)
+        super().__init__(
+            ws_prefix="artist", search_terms={"artist": artist_name}, network=network
+        )
 
     def get_next_page(self):
         """Returns the next page of results as a sequence of Artist objects."""
@@ -2675,9 +2711,10 @@ class TrackSearch(_Search):
     """
 
     def __init__(self, artist_name, track_title, network):
-
-        _Search.__init__(
-            self, "track", {"track": track_title, "artist": artist_name}, network
+        super().__init__(
+            ws_prefix="track",
+            search_terms={"track": track_title, "artist": artist_name},
+            network=network,
         )
 
     def get_next_page(self):
@@ -2733,47 +2770,59 @@ def cleanup_nodes(doc):
     return doc
 
 
-def _collect_nodes(limit, sender, method_name, cacheable, params=None):
+def _collect_nodes(limit, sender, method_name, cacheable, params=None, stream=False):
     """
     Returns a sequence of dom.Node objects about as close to limit as possible
     """
-
     if not params:
         params = sender._get_params()
 
-    nodes = []
-    page = 1
-    end_of_pages = False
+    def _stream_collect_nodes():
+        node_count = 0
+        page = 1
+        end_of_pages = False
 
-    while not end_of_pages and (not limit or (limit and len(nodes) < limit)):
-        params["page"] = str(page)
-        doc = sender._request(method_name, cacheable, params)
-        doc = cleanup_nodes(doc)
+        while not end_of_pages and (not limit or (limit and node_count < limit)):
+            params["page"] = str(page)
 
-        # break if there are no child nodes
-        if not doc.documentElement.childNodes:
-            break
-        main = doc.documentElement.childNodes[0]
+            tries = 1
+            while True:
+                try:
+                    doc = sender._request(method_name, cacheable, params)
+                    break  # success
+                except Exception as e:
+                    if tries >= 3:
+                        raise PyLastError() from e
+                    # Wait and try again
+                    time.sleep(1)
+                    tries += 1
 
-        if main.hasAttribute("totalPages"):
-            total_pages = _number(main.getAttribute("totalPages"))
-        elif main.hasAttribute("totalpages"):
-            total_pages = _number(main.getAttribute("totalpages"))
-        else:
-            raise Exception("No total pages attribute")
+            doc = cleanup_nodes(doc)
 
-        for node in main.childNodes:
-            if not node.nodeType == xml.dom.Node.TEXT_NODE and (
-                not limit or (len(nodes) < limit)
-            ):
-                nodes.append(node)
+            # break if there are no child nodes
+            if not doc.documentElement.childNodes:
+                break
+            main = doc.documentElement.childNodes[0]
 
-        if page >= total_pages:
-            end_of_pages = True
+            if main.hasAttribute("totalPages") or main.hasAttribute("totalpages"):
+                total_pages = _number(
+                    main.getAttribute("totalPages") or main.getAttribute("totalpages")
+                )
+            else:
+                raise PyLastError("No total pages attribute")
 
-        page += 1
+            for node in main.childNodes:
+                if not node.nodeType == xml.dom.Node.TEXT_NODE and (
+                    not limit or (node_count < limit)
+                ):
+                    node_count += 1
+                    yield node
 
-    return nodes
+            end_of_pages = page >= total_pages
+
+            page += 1
+
+    return _stream_collect_nodes() if stream else list(_stream_collect_nodes())
 
 
 def _extract(node, name, index=0):
@@ -2821,8 +2870,9 @@ def _extract_top_albums(doc, network):
         name = _extract(node, "name")
         artist = _extract(node, "name", 1)
         playcount = _extract(node, "playcount")
+        info = {"image": _extract_all(node, "image")}
 
-        seq.append(TopItem(Album(artist, name, network), playcount))
+        seq.append(TopItem(Album(artist, name, network, info=info), playcount))
 
     return seq
 
@@ -2855,18 +2905,16 @@ def _extract_tracks(doc, network):
 def _url_safe(text):
     """Does all kinds of tricks on a text to make it safe to use in a URL."""
 
-    return url_quote_plus(url_quote_plus(_string(text))).lower()
+    return quote_plus(quote_plus(_string(text))).lower()
 
 
 def _number(string):
     """
-        Extracts an int from a string.
-        Returns a 0 if None or an empty string was passed.
+    Extracts an int from a string.
+    Returns a 0 if None or an empty string was passed.
     """
 
     if not string:
-        return 0
-    elif string == "":
         return 0
     else:
         try:
@@ -2876,9 +2924,6 @@ def _number(string):
 
 
 def _unescape_htmlentity(string):
-
-    # string = _unicode(string)
-
     mapping = html.entities.name2codepoint
     for key in mapping:
         string = string.replace("&%s;" % key, chr(mapping[key]))
