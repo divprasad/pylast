@@ -22,8 +22,12 @@ categories:
 exclude-labels:
   - "changelog: skip"
 
-template: |
+autolabeler:
+  - label: "changelog: skip"
+    branch:
+      - "/pre-commit-ci-update-config/"
 
+template: |
   $CHANGES
 
 version-resolver:

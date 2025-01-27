@@ -2,18 +2,20 @@
 """
 Integration (not unit) tests for pylast.py
 """
+from __future__ import annotations
+
 from flaky import flaky
 
 import pylast
 
-from .test_pylast import PyLastTestCase, load_secrets
+from .test_pylast import load_secrets
 
 
 @flaky(max_runs=3, min_passes=1)
-class TestPyLastWithLibreFm(PyLastTestCase):
+class TestPyLastWithLibreFm:
     """Own class for Libre.fm because we don't need the Last.fm setUp"""
 
-    def test_libre_fm(self):
+    def test_libre_fm(self) -> None:
         # Arrange
         secrets = load_secrets()
         username = secrets["username"]
@@ -27,7 +29,7 @@ class TestPyLastWithLibreFm(PyLastTestCase):
         # Assert
         assert name == "Radiohead"
 
-    def test_repr(self):
+    def test_repr(self) -> None:
         # Arrange
         secrets = load_secrets()
         username = secrets["username"]
@@ -38,4 +40,4 @@ class TestPyLastWithLibreFm(PyLastTestCase):
         representation = repr(network)
 
         # Assert
-        self.assert_startswith(representation, "pylast.LibreFMNetwork(")
+        assert representation.startswith("pylast.LibreFMNetwork(")

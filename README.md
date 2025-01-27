@@ -1,12 +1,11 @@
-pyLast
-======
+# pyLast
 
 [![PyPI version](https://img.shields.io/pypi/v/pylast.svg)](https://pypi.org/project/pylast/)
 [![Supported Python versions](https://img.shields.io/pypi/pyversions/pylast.svg)](https://pypi.org/project/pylast/)
 [![PyPI downloads](https://img.shields.io/pypi/dm/pylast.svg)](https://pypistats.org/packages/pylast)
 [![Test](https://github.com/pylast/pylast/workflows/Test/badge.svg)](https://github.com/pylast/pylast/actions)
-[![Coverage (Codecov)](https://codecov.io/gh/pylast/pylast/branch/master/graph/badge.svg)](https://codecov.io/gh/pylast/pylast)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Coverage (Codecov)](https://codecov.io/gh/pylast/pylast/branch/main/graph/badge.svg)](https://codecov.io/gh/pylast/pylast)
+[![Code style: Black](https://img.shields.io/badge/code%20style-Black-000000.svg)](https://github.com/psf/black)
 [![DOI](https://zenodo.org/badge/7803088.svg)](https://zenodo.org/badge/latestdoi/7803088)
 
 A Python interface to [Last.fm](https://www.last.fm/) and other API-compatible websites
@@ -14,8 +13,7 @@ such as [Libre.fm](https://libre.fm/).
 
 Use the pydoc utility for help on usage or see [tests/](tests/) for examples.
 
-Installation
-------------
+## Installation
 
 Install via pip:
 
@@ -32,35 +30,38 @@ python3 -m pip install -U git+https://github.com/pylast/pylast
 Or from requirements.txt:
 
 ```txt
--e git://github.com/pylast/pylast.git#egg=pylast
+-e https://github.com/pylast/pylast.git#egg=pylast
 ```
 
 Note:
 
-* pyLast 4.0+ supports Python 3.6-3.9.
-* pyLast 3.2 - 3.3 supports Python 3.5-3.8.
-* pyLast 3.0 - 3.1 supports Python 3.5-3.7.
-* pyLast 2.2 - 2.4 supports Python 2.7.10+, 3.4-3.7.
-* pyLast 2.0 - 2.1 supports Python 2.7.10+, 3.4-3.6.
-* pyLast 1.7 - 1.9 supports Python 2.7, 3.3-3.6.
-* pyLast 1.0 - 1.6 supports Python 2.7, 3.3-3.4.
-* pyLast 0.5 supports Python 2, 3.
-* pyLast < 0.5 supports Python 2.
+- pyLast 5.4+ supports Python 3.9-3.13.
+- pyLast 5.3 supports Python 3.8-3.13.
+- pyLast 5.2 supports Python 3.8-3.12.
+- pyLast 5.1 supports Python 3.7-3.11.
+- pyLast 5.0 supports Python 3.7-3.10.
+- pyLast 4.3 - 4.5 supports Python 3.6-3.10.
+- pyLast 4.0 - 4.2 supports Python 3.6-3.9.
+- pyLast 3.2 - 3.3 supports Python 3.5-3.8.
+- pyLast 3.0 - 3.1 supports Python 3.5-3.7.
+- pyLast 2.2 - 2.4 supports Python 2.7.10+, 3.4-3.7.
+- pyLast 2.0 - 2.1 supports Python 2.7.10+, 3.4-3.6.
+- pyLast 1.7 - 1.9 supports Python 2.7, 3.3-3.6.
+- pyLast 1.0 - 1.6 supports Python 2.7, 3.3-3.4.
+- pyLast 0.5 supports Python 2, 3.
+- pyLast < 0.5 supports Python 2.
 
-Features
---------
+## Features
 
- * Simple public interface.
- * Access to all the data exposed by the Last.fm web services.
- * Scrobbling support.
- * Full object-oriented design.
- * Proxy support.
- * Internal caching support for some web services calls (disabled by default).
- * Support for other API-compatible networks like Libre.fm.
+- Simple public interface.
+- Access to all the data exposed by the Last.fm web services.
+- Scrobbling support.
+- Full object-oriented design.
+- Proxy support.
+- Internal caching support for some web services calls (disabled by default).
+- Support for other API-compatible networks like Libre.fm.
 
-
-Getting started
----------------
+## Getting started
 
 Here's some simple code example to get you started. In order to create any object from
 pyLast, you need a `Network` object which represents a social music network that is
@@ -85,12 +86,44 @@ network = pylast.LastFMNetwork(
     username=username,
     password_hash=password_hash,
 )
+```
 
+Alternatively, instead of creating `network` with a username and password, you can
+authenticate with a session key:
+
+```python
+import pylast
+
+SESSION_KEY_FILE = os.path.join(os.path.expanduser("~"), ".session_key")
+network = pylast.LastFMNetwork(API_KEY, API_SECRET)
+if not os.path.exists(SESSION_KEY_FILE):
+    skg = pylast.SessionKeyGenerator(network)
+    url = skg.get_web_auth_url()
+
+    print(f"Please authorize this script to access your account: {url}\n")
+    import time
+    import webbrowser
+
+    webbrowser.open(url)
+
+    while True:
+        try:
+            session_key = skg.get_web_auth_session_key(url)
+            with open(SESSION_KEY_FILE, "w") as f:
+                f.write(session_key)
+            break
+        except pylast.WSError:
+            time.sleep(1)
+else:
+    session_key = open(SESSION_KEY_FILE).read()
+
+network.session_key = session_key
+```
+
+And away we go:
+
+```python
 # Now you can use that object everywhere
-artist = network.get_artist("System of a Down")
-artist.shout("<3")
-
-
 track = network.get_track("Iron Maiden", "The Nomad")
 track.love()
 track.add_tags(("awesome", "favorite"))
@@ -101,18 +134,18 @@ track.add_tags(("awesome", "favorite"))
 
 More examples in
 <a href="https://github.com/hugovk/lastfm-tools">hugovk/lastfm-tools</a> and
-[tests/](https://github.com/pylast/pylast/tree/master/tests).
+[tests/](https://github.com/pylast/pylast/tree/main/tests).
 
-Testing
--------
+## Testing
 
-The [tests/](https://github.com/pylast/pylast/tree/master/tests) directory contains
+The [tests/](https://github.com/pylast/pylast/tree/main/tests) directory contains
 integration and unit tests with Last.fm, and plenty of code examples.
 
 For integration tests you need a test account at Last.fm that will become cluttered with
 test data, and an API key and secret. Either copy
-[example_test_pylast.yaml](example_test_pylast.yaml) to test_pylast.yaml and fill out
-the credentials, or set them as environment variables like:
+[example_test_pylast.yaml](https://github.com/pylast/pylast/blob/main/example_test_pylast.yaml)
+to test_pylast.yaml and fill out the credentials, or set them as environment variables
+like:
 
 ```sh
 export PYLAST_USERNAME=TODO_ENTER_YOURS_HERE
@@ -143,8 +176,7 @@ coverage html   # for HTML report
 open htmlcov/index.html
 ```
 
-Logging
--------
+## Logging
 
 To enable from your own code:
 
@@ -152,7 +184,8 @@ To enable from your own code:
 import logging
 import pylast
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
+
 
 network = pylast.LastFMNetwork(...)
 ```
@@ -160,5 +193,8 @@ network = pylast.LastFMNetwork(...)
 To enable from pytest:
 
 ```sh
-pytest --log-cli-level debug -k test_album_search_images
+pytest --log-cli-level info -k test_album_search_images
 ```
+
+To also see data returned from the API, use `level=logging.DEBUG` or
+`--log-cli-level debug` instead.

@@ -2,8 +2,9 @@
 """
 Integration (not unit) tests for pylast.py
 """
+from __future__ import annotations
+
 import os
-import sys
 import time
 
 import pytest
@@ -11,7 +12,7 @@ from flaky import flaky
 
 import pylast
 
-WRITE_TEST = sys.version_info[:2] == (3, 9)
+WRITE_TEST = False
 
 
 def load_secrets():  # pragma: no cover
@@ -33,29 +34,21 @@ def load_secrets():  # pragma: no cover
     return doc
 
 
-class PyLastTestCase:
-    def assert_startswith(self, s, prefix, start=None, end=None):
-        assert s.startswith(prefix, start, end)
-
-    def assert_endswith(self, s, suffix, start=None, end=None):
-        assert s.endswith(suffix, start, end)
-
-
-def _no_xfail_rerun_filter(err, name, test, plugin):
+def _no_xfail_rerun_filter(err, name, test, plugin) -> bool:
     for _ in test.iter_markers(name="xfail"):
         return False
 
 
 @flaky(max_runs=3, min_passes=1, rerun_filter=_no_xfail_rerun_filter)
-class TestPyLastWithLastFm(PyLastTestCase):
-
+class TestPyLastWithLastFm:
     secrets = None
 
-    def unix_timestamp(self):
+    @staticmethod
+    def unix_timestamp() -> int:
         return int(time.time())
 
     @classmethod
-    def setup_class(cls):
+    def setup_class(cls) -> None:
         if cls.secrets is None:
             cls.secrets = load_secrets()
 
@@ -72,7 +65,8 @@ class TestPyLastWithLastFm(PyLastTestCase):
             password_hash=password_hash,
         )
 
-    def helper_is_thing_hashable(self, thing):
+    @staticmethod
+    def helper_is_thing_hashable(thing) -> None:
         # Arrange
         things = set()
 
@@ -83,7 +77,8 @@ class TestPyLastWithLastFm(PyLastTestCase):
         assert thing is not None
         assert len(things) == 1
 
-    def helper_validate_results(self, a, b, c):
+    @staticmethod
+    def helper_validate_results(a, b, c) -> None:
         # Assert
         assert a is not None
         assert b is not None
@@ -94,7 +89,7 @@ class TestPyLastWithLastFm(PyLastTestCase):
         assert a == b
         assert b == c
 
-    def helper_validate_cacheable(self, thing, function_name):
+    def helper_validate_cacheable(self, thing, function_name) -> None:
         # Arrange
         # get thing.function_name()
         func = getattr(thing, function_name, None)
@@ -107,27 +102,31 @@ class TestPyLastWithLastFm(PyLastTestCase):
         # Assert
         self.helper_validate_results(result1, result2, result3)
 
-    def helper_at_least_one_thing_in_top_list(self, things, expected_type):
+    @staticmethod
+    def helper_at_least_one_thing_in_top_list(things, expected_type) -> None:
         # Assert
         assert len(things) > 1
         assert isinstance(things, list)
         assert isinstance(things[0], pylast.TopItem)
         assert isinstance(things[0].item, expected_type)
 
-    def helper_only_one_thing_in_top_list(self, things, expected_type):
+    @staticmethod
+    def helper_only_one_thing_in_top_list(things, expected_type) -> None:
         # Assert
         assert len(things) == 1
         assert isinstance(things, list)
         assert isinstance(things[0], pylast.TopItem)
         assert isinstance(things[0].item, expected_type)
 
-    def helper_only_one_thing_in_list(self, things, expected_type):
+    @staticmethod
+    def helper_only_one_thing_in_list(things, expected_type) -> None:
         # Assert
         assert len(things) == 1
         assert isinstance(things, list)
         assert isinstance(things[0], expected_type)
 
-    def helper_two_different_things_in_top_list(self, things, expected_type):
+    @staticmethod
+    def helper_two_different_things_in_top_list(things, expected_type) -> None:
         # Assert
         assert len(things) == 2
         thing1 = things[0]

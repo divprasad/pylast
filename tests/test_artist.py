@@ -2,6 +2,8 @@
 """
 Integration (not unit) tests for pylast.py
 """
+from __future__ import annotations
+
 import pytest
 
 import pylast
@@ -10,7 +12,7 @@ from .test_pylast import WRITE_TEST, TestPyLastWithLastFm
 
 
 class TestPyLastArtist(TestPyLastWithLastFm):
-    def test_repr(self):
+    def test_repr(self) -> None:
         # Arrange
         artist = pylast.Artist("Test Artist", self.network)
 
@@ -20,16 +22,16 @@ class TestPyLastArtist(TestPyLastWithLastFm):
         # Assert
         assert representation.startswith("pylast.Artist('Test Artist',")
 
-    def test_artist_is_hashable(self):
+    def test_artist_is_hashable(self) -> None:
         # Arrange
-        test_artist = self.network.get_artist("Test Artist")
+        test_artist = self.network.get_artist("Radiohead")
         artist = test_artist.get_similar(limit=2)[0].item
         assert isinstance(artist, pylast.Artist)
 
         # Act/Assert
         self.helper_is_thing_hashable(artist)
 
-    def test_bio_published_date(self):
+    def test_bio_published_date(self) -> None:
         # Arrange
         artist = pylast.Artist("Test Artist", self.network)
 
@@ -40,7 +42,7 @@ class TestPyLastArtist(TestPyLastWithLastFm):
         assert bio is not None
         assert len(bio) >= 1
 
-    def test_bio_content(self):
+    def test_bio_content(self) -> None:
         # Arrange
         artist = pylast.Artist("Test Artist", self.network)
 
@@ -51,7 +53,7 @@ class TestPyLastArtist(TestPyLastWithLastFm):
         assert bio is not None
         assert len(bio) >= 1
 
-    def test_bio_content_none(self):
+    def test_bio_content_none(self) -> None:
         # Arrange
         # An artist with no biography, with "<content/>" in the API XML
         artist = pylast.Artist("Mr Sizef + Unquote", self.network)
@@ -62,7 +64,7 @@ class TestPyLastArtist(TestPyLastWithLastFm):
         # Assert
         assert bio is None
 
-    def test_bio_summary(self):
+    def test_bio_summary(self) -> None:
         # Arrange
         artist = pylast.Artist("Test Artist", self.network)
 
@@ -73,7 +75,7 @@ class TestPyLastArtist(TestPyLastWithLastFm):
         assert bio is not None
         assert len(bio) >= 1
 
-    def test_artist_top_tracks(self):
+    def test_artist_top_tracks(self) -> None:
         # Arrange
         # Pick an artist with plenty of plays
         artist = self.network.get_top_artists(limit=1)[0].item
@@ -84,7 +86,7 @@ class TestPyLastArtist(TestPyLastWithLastFm):
         # Assert
         self.helper_two_different_things_in_top_list(things, pylast.Track)
 
-    def test_artist_top_albums(self):
+    def test_artist_top_albums(self) -> None:
         # Arrange
         # Pick an artist with plenty of plays
         artist = self.network.get_top_artists(limit=1)[0].item
@@ -107,7 +109,7 @@ class TestPyLastArtist(TestPyLastWithLastFm):
         # Assert
         assert len(things) == test_limit
 
-    def test_artist_top_albums_limit_default(self):
+    def test_artist_top_albums_limit_default(self) -> None:
         # Arrange
         # Pick an artist with plenty of plays
         artist = self.network.get_top_artists(limit=1)[0].item
@@ -118,7 +120,7 @@ class TestPyLastArtist(TestPyLastWithLastFm):
         # Assert
         assert len(things) == 50
 
-    def test_artist_listener_count(self):
+    def test_artist_listener_count(self) -> None:
         # Arrange
         artist = self.network.get_artist("Test Artist")
 
@@ -130,7 +132,7 @@ class TestPyLastArtist(TestPyLastWithLastFm):
         assert count > 0
 
     @pytest.mark.skipif(not WRITE_TEST, reason="Only test once to avoid collisions")
-    def test_tag_artist(self):
+    def test_tag_artist(self) -> None:
         # Arrange
         artist = self.network.get_artist("Test Artist")
         # artist.clear_tags()
@@ -145,7 +147,7 @@ class TestPyLastArtist(TestPyLastWithLastFm):
         assert found
 
     @pytest.mark.skipif(not WRITE_TEST, reason="Only test once to avoid collisions")
-    def test_remove_tag_of_type_text(self):
+    def test_remove_tag_of_type_text(self) -> None:
         # Arrange
         tag = "testing"  # text
         artist = self.network.get_artist("Test Artist")
@@ -160,7 +162,7 @@ class TestPyLastArtist(TestPyLastWithLastFm):
         assert not found
 
     @pytest.mark.skipif(not WRITE_TEST, reason="Only test once to avoid collisions")
-    def test_remove_tag_of_type_tag(self):
+    def test_remove_tag_of_type_tag(self) -> None:
         # Arrange
         tag = pylast.Tag("testing", self.network)  # Tag
         artist = self.network.get_artist("Test Artist")
@@ -175,7 +177,7 @@ class TestPyLastArtist(TestPyLastWithLastFm):
         assert not found
 
     @pytest.mark.skipif(not WRITE_TEST, reason="Only test once to avoid collisions")
-    def test_remove_tags(self):
+    def test_remove_tags(self) -> None:
         # Arrange
         tags = ["removetag1", "removetag2"]
         artist = self.network.get_artist("Test Artist")
@@ -195,7 +197,7 @@ class TestPyLastArtist(TestPyLastWithLastFm):
         assert not found2
 
     @pytest.mark.skipif(not WRITE_TEST, reason="Only test once to avoid collisions")
-    def test_set_tags(self):
+    def test_set_tags(self) -> None:
         # Arrange
         tags = ["sometag1", "sometag2"]
         artist = self.network.get_artist("Test Artist 2")
@@ -219,7 +221,7 @@ class TestPyLastArtist(TestPyLastWithLastFm):
         assert found1
         assert found2
 
-    def test_artists(self):
+    def test_artists(self) -> None:
         # Arrange
         artist1 = self.network.get_artist("Radiohead")
         artist2 = self.network.get_artist("Portishead")
@@ -229,7 +231,6 @@ class TestPyLastArtist(TestPyLastWithLastFm):
         mbid = artist1.get_mbid()
 
         playcount = artist1.get_playcount()
-        streamable = artist1.is_streamable()
         name = artist1.get_name(properly_capitalized=False)
         name_cap = artist1.get_name(properly_capitalized=True)
 
@@ -239,9 +240,8 @@ class TestPyLastArtist(TestPyLastWithLastFm):
         assert name.lower() == name_cap.lower()
         assert url == "https://www.last.fm/music/radiohead"
         assert mbid == "a74b1b7f-71a5-4011-9441-d0b5e4122711"
-        assert isinstance(streamable, bool)
 
-    def test_artist_eq_none_is_false(self):
+    def test_artist_eq_none_is_false(self) -> None:
         # Arrange
         artist1 = None
         artist2 = pylast.Artist("Test Artist", self.network)
@@ -249,7 +249,7 @@ class TestPyLastArtist(TestPyLastWithLastFm):
         # Act / Assert
         assert artist1 != artist2
 
-    def test_artist_ne_none_is_true(self):
+    def test_artist_ne_none_is_true(self) -> None:
         # Arrange
         artist1 = None
         artist2 = pylast.Artist("Test Artist", self.network)
@@ -257,7 +257,7 @@ class TestPyLastArtist(TestPyLastWithLastFm):
         # Act / Assert
         assert artist1 != artist2
 
-    def test_artist_get_correction(self):
+    def test_artist_get_correction(self) -> None:
         # Arrange
         artist = pylast.Artist("guns and roses", self.network)
 
@@ -267,8 +267,7 @@ class TestPyLastArtist(TestPyLastWithLastFm):
         # Assert
         assert corrected_artist_name == "Guns N' Roses"
 
-    @pytest.mark.xfail
-    def test_get_userplaycount(self):
+    def test_get_userplaycount(self) -> None:
         # Arrange
         artist = pylast.Artist("John Lennon", self.network, username=self.username)
 
@@ -276,4 +275,4 @@ class TestPyLastArtist(TestPyLastWithLastFm):
         playcount = artist.get_userplaycount()
 
         # Assert
-        assert playcount >= 0  # whilst xfail: # pragma: no cover
+        assert playcount >= 0

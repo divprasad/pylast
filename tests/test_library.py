@@ -2,13 +2,15 @@
 """
 Integration (not unit) tests for pylast.py
 """
+from __future__ import annotations
+
 import pylast
 
 from .test_pylast import TestPyLastWithLastFm
 
 
 class TestPyLastLibrary(TestPyLastWithLastFm):
-    def test_repr(self):
+    def test_repr(self) -> None:
         # Arrange
         library = pylast.Library(user=self.username, network=self.network)
 
@@ -16,9 +18,9 @@ class TestPyLastLibrary(TestPyLastWithLastFm):
         representation = repr(library)
 
         # Assert
-        self.assert_startswith(representation, "pylast.Library(")
+        assert representation.startswith("pylast.Library(")
 
-    def test_str(self):
+    def test_str(self) -> None:
         # Arrange
         library = pylast.Library(user=self.username, network=self.network)
 
@@ -26,23 +28,23 @@ class TestPyLastLibrary(TestPyLastWithLastFm):
         string = str(library)
 
         # Assert
-        self.assert_endswith(string, "'s Library")
+        assert string.endswith("'s Library")
 
-    def test_library_is_hashable(self):
+    def test_library_is_hashable(self) -> None:
         # Arrange
         library = pylast.Library(user=self.username, network=self.network)
 
         # Act/Assert
         self.helper_is_thing_hashable(library)
 
-    def test_cacheable_library(self):
+    def test_cacheable_library(self) -> None:
         # Arrange
         library = pylast.Library(self.username, self.network)
 
         # Act/Assert
         self.helper_validate_cacheable(library, "get_artists")
 
-    def test_get_user(self):
+    def test_get_user(self) -> None:
         # Arrange
         library = pylast.Library(user=self.username, network=self.network)
         user_to_get = self.network.get_user(self.username)
